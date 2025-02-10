@@ -1,0 +1,57 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Assuming dataset is passed into Power BI
+df = dataset
+
+# ---- Data Aggregation ----
+# Aggregate the data by company to calculate average PE Ratio and Market Capitalization
+company_summary = df.groupby('Company').agg({'PE Ratio': 'mean', 'Market Capital': 'mean'}).reset_index()
+
+# ---- Set up the figure for subplots ----
+fig, axs = plt.subplots(2, 2, figsize=(18, 12))  # 2x2 grid of subplots
+
+# ---- Plot 1: Stock Price Trends (Closing Price) ---- (Now in Position 1)
+ax1 = axs[0, 0]  # This is now in position 1 (top-left)
+sns.lineplot(data=df, x=df.index, y='Close', hue='Company', palette='tab10', lw=2, ax=ax1)
+ax1.set_title('Stock Price Trends (Closing Price) of FAANG Companies')
+ax1.set_xlabel('Index')
+ax1.set_ylabel('Closing Price (USD)')
+
+# ---- Plot 2: Correlation Heatmap ---- (Now in Position 2)
+ax2 = axs[0, 1]  # This is now in position 2 (top-right)
+# Select relevant financial metrics
+metrics = ['PE Ratio', 'Market Capital', 'EPS', 'Beta', 'Debt to Equity', 'Return on Equity (ROE)', 'Dividend Yield']
+# Calculate the correlation matrix
+correlation_matrix = df[metrics].corr()
+sns.heatmap(correlation_matrix, annot=True, cmap='viridis', fmt='.2f', vmin=-1, vmax=1, ax=ax2)
+ax2.set_title('Correlation Heatmap of Financial Metrics')
+
+# ---- Plot 3: Bar Chart (PE Ratio vs Market Capitalization) ---- (Now in Position 3)
+ax3 = axs[1, 0]  # This is now in position 3 (bottom-left)
+ax3.bar(company_summary['Company'], company_summary['PE Ratio'], color='blue', alpha=0.6, label='PE Ratio')
+ax4 = ax3.twinx()  # Create a second y-axis for Market Capitalization
+ax4.plot(company_summary['Company'], company_summary['Market Capital'], color='red', marker='o', label='Market Capital', linestyle='--')
+ax3.set_xlabel('Company')
+ax3.set_ylabel('PE Ratio', color='blue')
+ax4.set_ylabel('Market Capital (in Billions)', color='red')
+ax3.set_title('Comparison of PE Ratio and Market Capitalization')
+ax3.legend(loc='upper left')
+ax4.legend(loc='upper right')
+
+# ---- Plot 4: PE Ratio vs EPS Scatter Plot ---- (Now in Position 4)
+ax5 = axs[1, 1]  # This is now in position 4 (bottom-right)
+sns.scatterplot(data=df, x='PE Ratio', y='EPS', hue='Company', palette='tab10', s=100, ax=ax5)
+ax5.set_title('PE Ratio vs EPS for FAANG Companies')
+ax5.set_xlabel('PE Ratio')
+ax5.set_ylabel('EPS (USD)')
+
+# ---- Add a heading title for the entire figure ----
+fig.suptitle('Comprehensive Financial Analysis of FAANG Companies', fontsize=18, fontweight='bold')
+
+# Adjust layout to avoid overlap
+plt.tight_layout()
+
+# Show the plot
+plt.show()
