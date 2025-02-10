@@ -1,0 +1,134 @@
+HEALTHCARE DATA ANALYSIS IN SQL
+#1.Patient Demographics
+SELECT gender,COUNT(gender) AS distribution 
+FROM patients
+GROUP BY gender;
+
+#2.Patient Age Calculation
+SELECT AVG(YEAR(CURRENT_DATE) - YEAR(dob)) AS avg_age
+FROM patients;
+
+#3.Appointment Status Analysis
+SELECT status,COUNT(status) AS appointment_status
+FROM appointments
+GROUP BY status;
+
+#4.Doctor Appointment Count
+SELECT CONCAT(d.first_name, ' ', d.last_name)AS doctor_name,COUNT(a.doctor_id) as appointments
+FROM doctors d
+LEFT JOIN appointments a
+ON d.doctor_id = a.doctor_id
+GROUP BY doctor_name;
+
+#5.Canceled Appointments
+SELECT status,COUNT(status) AS COUNT 
+FROM appointments
+WHERE status = 'Cancelled'
+GROUP BY status;
+
+#6.Upcoming Appointments 
+SELECT COUNT(DISTINCT patient_id) AS upcoming_appointments
+FROM appointments
+WHERE appointment_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY);
+
+#7.Patients with Recent Appointments
+SELECT COUNT(DISTINCT patient_id) AS appointments
+FROM appointments
+WHERE appointment_date BETWEEN DATE_SUB(CURDATE(), INTERVAL 6 MONTH) AND CURDATE();
+
+#8.Doctors with Completed Appointments
+SELECT d.first_name, d.last_name, COUNT(a.appointment_id) AS completed_appointments
+FROM doctors d
+LEFT JOIN appointments a ON d.doctor_id = a.doctor_id
+WHERE a.status = 'Completed'
+GROUP BY d.doctor_id, d.first_name, d.last_name
+ORDER BY completed_appointments DESC
+LIMIT 1;
+
+#9.Appointment Cancellation Rate by Doctor
+SELECT d.first_name, d.last_name,
+       COUNT(CASE WHEN a.status = 'Cancelled' THEN 1 END) AS cancelled_appointments,
+       COUNT(a.appointment_id) AS total_appointments,
+       (COUNT(CASE WHEN a.status = 'Cancelled' THEN 1 END) * 100.0 / COUNT(a.appointment_id)) AS cancellation_rate
+FROM doctors d
+LEFT JOIN appointments a ON d.doctor_id = a.doctor_id
+GROUP BY d.doctor_id, d.first_name, d.last_name;
+
+#10.Patient Admission Trend
+SELECT
+    DATE_FORMAT(p.admission_date, '%Y-%m') AS month,
+    COUNT(*) AS admitted_patients
+FROM
+    patients p
+WHERE
+    a.admission_date >= CURDATE() - INTERVAL 6 MONTH
+GROUP BY
+    month
+ORDER BY
+    month DESC;
+
+PROBLEMS:
+1. Patient Demographics
+•	Question 1: What is the distribution of patients by gender?
+(Count the number of male and female patients in the patients table.)
+2. Patient Age Calculation
+•	Question 2: What is the average age of the patients in the dataset?
+(Calculate the age of each patient based on the dob and find the average age.)
+3. Appointment Status Analysis
+•	Question 3: What is the appointment status distribution across all appointments?
+(Group appointments by status and count the occurrences of each status: Scheduled, Completed, Cancelled.)
+4. Doctor Appointment Count
+•	Question 4: How many appointments has each doctor had?
+(Count the number of appointments for each doctor by doctor_id in the appointments table.)
+5. Canceled Appointments
+•	Question 5: How many appointments have been canceled?
+(Filter the appointments where status = 'Cancelled' and count the total number of such appointments.)
+6. Upcoming Appointments
+•	Question 6: How many appointments are scheduled for the next 30 days from today?
+(Use the appointment_date and filter appointments where the date is within the next 30 days, then count them.)
+7. Patients with Recent Appointments
+•	Question 7: How many patients have had an appointment in the last 6 months?
+(Filter appointments that occurred in the last 6 months and count distinct patient_id.)
+8. Doctors with Completed Appointments
+•	Question 8: Which doctor has had the highest number of completed appointments?
+(Group appointments by doctor_id and status, filter for Completed appointments, and order by the count to find the doctor with the highest number of completed appointments.)
+9. Appointment Cancellation Rate by Doctor
+•	Question 9: What is the cancellation rate of appointments for each doctor?
+(For each doctor, calculate the percentage of canceled appointments compared to the total appointments they have had.)
+10. Patient Admission Trend
+•	Question 10: How many patients were admitted each month over the last 6 months?
+(Group by the month and year of admission_date and count the number of distinct patients admitted in each month.)
+
+SQL Schema
+HEALTHCARE
+Patients table
+INSERT INTO patients (patient_id, first_name, last_name, dob, gender, email, phone_number, admission_date)
+VALUES 
+(1, 'John', 'Doe', '1985-05-15', 'Male', 'john.doe@example.com', '555-1010', '2024-01-01'),
+(2, 'Jane', 'Smith', '1990-02-10', 'Female', 'jane.smith@example.com', '555-1011', '2023-12-15'),
+(3, 'Michael', 'Johnson', '1978-07-23', 'Male', 'michael.johnson@example.com', '555-1012', '2023-11-20'),
+(4, 'Emily', 'Davis', '2000-11-05', 'Female', 'emily.davis@example.com', '555-1013', '2023-10-30'),
+(5, 'David', 'Brown', '1980-04-10', 'Male', 'david.brown@example.com', '555-1014', '2023-09-25'),
+(6, 'Sarah', 'Williams', '1995-09-15', 'Female', 'sarah.williams@example.com', '555-1015', '2023-08-19'),
+(7, 'Chris', 'Miller', '1975-12-20', 'Male', 'chris.miller@example.com', '555-1016', '2023-07-05'),
+(8, 'Olivia', 'Wilson', '1992-10-12', 'Female', 'olivia.wilson@example.com', '555-1017', '2023-06-25'),
+(9, 'Daniel', 'Jackson', '1997-03-02', 'Male', 'daniel.jackson@example.com', '555-1018', '2023-05-10'),
+(10, 'Emma', 'Taylor', '2005-01-19', 'Female', 'emma.taylor@example.com', '555-1019', '2023-04-15');
+Doctors table
+INSERT INTO doctors (doctor_id, first_name, last_name, specialty, phone_number, email)
+VALUES
+(1, 'Dr. John', 'Smith', 'Cardiologist', '555-2001', 'dr.john.smith@example.com'),
+(2, 'Dr. Sarah', 'Johnson', 'Neurologist', '555-2002', 'dr.sarah.johnson@example.com'),
+(3, 'Dr. Emily', 'Davis', 'Pediatrician', '555-2003', 'dr.emily.davis@example.com'),
+(4, 'Dr. Daniel', 'Miller', 'Orthopedic', '555-2004', 'dr.daniel.miller@example.com'),
+(5, 'Dr. Olivia', 'Williams', 'Dentist', '555-2005', 'dr.olivia.williams@example.com');
+Appointments table
+INSERT INTO appointments (appointment_id, patient_id, doctor_id, appointment_date, status)
+VALUES
+(1, 1, 2, '2024-01-05', 'Scheduled'),
+(2, 3, 1, '2023-12-18', 'Completed'),
+(3, 4, 3, '2023-11-22', 'Cancelled'),
+(4, 5, 4, '2023-10-10', 'Scheduled'),
+(5, 6, 5, '2023-09-14', 'Completed');
+
+
