@@ -1,0 +1,94 @@
+import pandas as pd
+from scipy import stats
+
+# Load the dataset from the Excel file
+file_path = r"D:\Sales Project - 1.xlsx"  # Your file path
+df = pd.read_excel(file_path)
+
+# Check the first few rows of the data to ensure it's loaded correctly
+print(df.head())
+
+# Standardize the 'Season' column to lowercase (or use exact matches)
+df['Season'] = df['Season'].str.strip().str.lower()  # Convert to lowercase and remove extra spaces
+
+# Filter the data for two different seasons (dry season and rainy season)
+dry_season_sales = df[df['Season'] == 'dry season']['Total Sales Value (NGN)']
+rainy_season_sales = df[df['Season'] == 'rainy season']['Total Sales Value (NGN)']
+
+# Check if we have data for both seasons
+print(f"Dry Season Sales: {dry_season_sales.describe()}")
+print(f"Rainy Season Sales: {rainy_season_sales.describe()}")
+
+# Check the number of entries for each season
+print(f"Dry season data count: {len(dry_season_sales)}")
+print(f"Rainy season data count: {len(rainy_season_sales)}")
+
+# Perform an independent two-sample t-test
+t_stat, p_value = stats.ttest_ind(dry_season_sales, rainy_season_sales, nan_policy='omit')
+
+# Display the results
+print(f"T-statistic: {t_stat}")
+print(f"P-value: {p_value}")
+
+# Decision based on p-value
+alpha = 0.05
+if p_value < alpha:
+    print("Reject the null hypothesis: The total sales between Dry and Rainy seasons are significantly different.")
+else:
+    print("Fail to reject the null hypothesis: The total sales between Dry and Rainy seasons are not significantly different.")
+
+
+
+Output:
+
+
+ Date  Quantity Sold (kg)  Unit Price (NGN)  Total Sales Value (NGN)  \
+0 2009-01-01                 139               168                    23421   
+1 2009-01-02                 208               155                    32261   
+2 2009-01-03                 287               157                    45119   
+3 2009-01-04                 118               153                    18022   
+4 2009-01-05                 188               127                    23788   
+
+   Opening Stock (kg)  Closing Stock (kg)  Restocked Quantity (kg)  \
+0                 263                 163                      100   
+1                 179                  57                      122   
+2                 211                   9                      202   
+3                 280                 240                       40   
+4                 244                  85                      159   
+
+  Supplier Name  Supplier Cost (NGN)  Transport Cost (NGN)    Store Location  \
+0  Local Farmer                  127                  4690  Kano, Sabon Gari   
+1  Ogun Growers                  122                  5485       Lagos, Yaba   
+2  Ogun Growers                  128                  3676            Ibadan   
+3  Ogun Growers                  110                  3538       Abuja, Wuse   
+4  Local Farmer                   94                  6816  Kano, Sabon Gari   
+
+       Season    Month  Profit  
+0  Dry Season  2009-01   18604  
+1  Dry Season  2009-01   26654  
+2  Dry Season  2009-01   41315  
+3  Dry Season  2009-01   14374  
+4  Dry Season  2009-01   16878  
+Dry Season Sales: count     3344.000000
+mean     42779.811902
+std      15880.131299
+min      12261.000000
+25%      30166.750000
+50%      40582.500000
+75%      53477.000000
+max      95627.000000
+Name: Total Sales Value (NGN), dtype: float64
+Rainy Season Sales: count     1708.000000
+mean     35929.954333
+std      14353.978957
+min       9298.000000
+25%      24721.000000
+50%      34618.000000
+75%      45599.500000
+max      80980.000000
+Name: Total Sales Value (NGN), dtype: float64
+Dry season data count: 3344
+Rainy season data count: 1708
+T-statistic: 14.973949223202576
+P-value: 1.2457953956391107e-49
+Reject the null hypothesis: The total sales between Dry and Rainy seasons are significantly different.
