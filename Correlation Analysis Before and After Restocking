@@ -1,0 +1,136 @@
+import pandas as pd
+from scipy import stats
+import matplotlib.pyplot as plt
+
+# Load the dataset from the Excel file
+file_path = r"D:\Sales Project - 1.xlsx"  # Your file path
+df = pd.read_excel(file_path)
+
+# Check the first few rows of the data to ensure it's loaded correctly
+print(df.head())
+
+# Before restocking: Profit before restocking is based on the initial stock and cost before restocking
+# After restocking: Profit after restocking takes into account the restocked quantity
+# We will assume that the data before restocking is when Restocked Quantity is 0
+
+# Filter data for before and after restocking
+before_restocking = df[df['Restocked Quantity (kg)'] == 0]
+after_restocking = df[df['Restocked Quantity (kg)'] > 0]
+
+# Display some descriptive statistics for Unit Price and Supplier Cost
+print("Before Restocking Unit Price and Supplier Cost:")
+print(before_restocking[['Unit Price (NGN)', 'Supplier Cost (NGN)']].describe())
+
+print("After Restocking Unit Price and Supplier Cost:")
+print(after_restocking[['Unit Price (NGN)', 'Supplier Cost (NGN)']].describe())
+
+# Compare average Unit Price and Supplier Cost
+avg_unit_price_before = before_restocking['Unit Price (NGN)'].mean()
+avg_supplier_cost_before = before_restocking['Supplier Cost (NGN)'].mean()
+
+avg_unit_price_after = after_restocking['Unit Price (NGN)'].mean()
+avg_supplier_cost_after = after_restocking['Supplier Cost (NGN)'].mean()
+
+print(f"Average Unit Price Before Restocking: {avg_unit_price_before}")
+print(f"Average Supplier Cost Before Restocking: {avg_supplier_cost_before}")
+print(f"Average Unit Price After Restocking: {avg_unit_price_after}")
+print(f"Average Supplier Cost After Restocking: {avg_supplier_cost_after}")
+
+# Visualizing the differences in Unit Price and Supplier Cost before and after restocking
+plt.figure(figsize=(12, 6))
+
+# Unit Price plot
+plt.subplot(1, 2, 1)
+plt.boxplot([before_restocking['Unit Price (NGN)'], after_restocking['Unit Price (NGN)']], labels=['Before Restocking', 'After Restocking'])
+plt.title("Unit Price Comparison Before and After Restocking")
+plt.ylabel("Unit Price (NGN)")
+
+# Supplier Cost plot
+plt.subplot(1, 2, 2)
+plt.boxplot([before_restocking['Supplier Cost (NGN)'], after_restocking['Supplier Cost (NGN)']], labels=['Before Restocking', 'After Restocking'])
+plt.title("Supplier Cost Comparison Before and After Restocking")
+plt.ylabel("Supplier Cost (NGN)")
+
+# Show plots
+plt.tight_layout()
+plt.show()
+
+# Correlation analysis: Checking correlation between Profit and both Unit Price, Supplier Cost before and after restocking
+correlation_before = before_restocking[['Profit', 'Unit Price (NGN)', 'Supplier Cost (NGN)']].corr()
+correlation_after = after_restocking[['Profit', 'Unit Price (NGN)', 'Supplier Cost (NGN)']].corr()
+
+print("Correlation before restocking:")
+print(correlation_before)
+
+print("Correlation after restocking:")
+print(correlation_after)
+
+
+OUTPUT: 
+
+
+ Date  Quantity Sold (kg)  Unit Price (NGN)  Total Sales Value (NGN)  \
+0 2009-01-01                 139               168                    23421   
+1 2009-01-02                 208               155                    32261   
+2 2009-01-03                 287               157                    45119   
+3 2009-01-04                 118               153                    18022   
+4 2009-01-05                 188               127                    23788   
+
+   Opening Stock (kg)  Closing Stock (kg)  Restocked Quantity (kg)  \
+0                 263                 163                      100   
+1                 179                  57                      122   
+2                 211                   9                      202   
+3                 280                 240                       40   
+4                 244                  85                      159   
+
+  Supplier Name  Supplier Cost (NGN)  Transport Cost (NGN)    Store Location  \
+0  Local Farmer                  127                  4690  Kano, Sabon Gari   
+1  Ogun Growers                  122                  5485       Lagos, Yaba   
+2  Ogun Growers                  128                  3676            Ibadan   
+3  Ogun Growers                  110                  3538       Abuja, Wuse   
+4  Local Farmer                   94                  6816  Kano, Sabon Gari   
+
+       Season    Month  Profit  
+0  Dry Season  2009-01   18604  
+1  Dry Season  2009-01   26654  
+2  Dry Season  2009-01   41315  
+3  Dry Season  2009-01   14374  
+4  Dry Season  2009-01   16878  
+
+Before Restocking Unit Price and Supplier Cost:
+       Unit Price (NGN)  Supplier Cost (NGN)
+count        140.000000           140.000000
+mean         287.585714           229.542857
+std           59.648007            51.652599
+min          182.000000           136.000000
+25%          239.750000           185.000000
+50%          276.000000           224.000000
+75%          334.750000           262.500000
+max          417.000000           365.000000
+
+After Restocking Unit Price and Supplier Cost:
+       Unit Price (NGN)  Supplier Cost (NGN)
+count       4912.000000          4912.000000
+mean         237.983306           190.485546
+std           61.762240            52.006001
+min          120.000000            85.000000
+25%          191.000000           152.000000
+50%          230.000000           184.000000
+75%          278.000000           224.000000
+max          420.000000           372.000000
+
+Average Unit Price Before Restocking: 287.5857142857143
+Average Supplier Cost Before Restocking: 229.54285714285714
+Average Unit Price After Restocking: 237.98330618892507
+Average Supplier Cost After Restocking: 190.48554560260587
+
+Correlation before restocking:
+                       Profit  Unit Price (NGN)  Supplier Cost (NGN)
+Profit               1.000000          0.665894             0.643898
+Unit Price (NGN)     0.665894          1.000000             0.950726
+Supplier Cost (NGN)  0.643898          0.950726             1.000000
+Correlation after restocking:
+                       Profit  Unit Price (NGN)  Supplier Cost (NGN)
+Profit               1.000000          0.349097             0.334377
+Unit Price (NGN)     0.349097          1.000000             0.961305
+Supplier Cost (NGN)  0.334377          0.961305             1.000000
