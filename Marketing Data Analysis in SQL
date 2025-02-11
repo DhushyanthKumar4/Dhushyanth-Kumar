@@ -1,0 +1,62 @@
+Marketing Data Analysis in SQL
+
+#What are all the campaigns in the database?
+
+SELECT * FROM campaigns;
+
+#What is the ad performance data for all campaigns?
+
+SELECT * FROM ad_performance;
+
+#What is the total budget spent across all campaigns?
+
+SELECT SUM(budget) AS total_budget
+FROM campaigns;
+
+#Which platform has the highest conversion rate?
+
+SELECT platform, conversion_rate
+FROM ad_performance
+ORDER BY conversion_rate DESC
+LIMIT 1;
+
+#Which campaigns have a budget greater than $30,000?
+
+SELECT campaign_name, start_date, end_date
+FROM campaigns
+WHERE budget > 30000;
+
+#Which campaign has the highest number of clicks?
+
+SELECT c.campaign_name, a.clicks
+FROM campaigns c
+LEFT JOIN ad_performance a
+ON a.campaign_id = c.campaign_id
+ORDER BY a.clicks DESC
+LIMIT 1;
+
+#What are the total impressions for each platform, ordered by total impressions?
+
+SELECT platform, SUM(impressions) AS total_impressions
+FROM ad_performance
+GROUP BY platform
+ORDER BY SUM(impressions) DESC;
+
+#What is the return on investment for each campaign?
+
+SELECT c.campaign_name, ((SUM(a.clicks) * AVG(a.conversion_rate)) - SUM(c.budget)) AS return_on_investments
+FROM campaigns c
+LEFT JOIN ad_performance a
+ON a.campaign_id = c.campaign_id
+GROUP BY c.campaign_name;
+
+#What are the total budget, total clicks, and average conversion rate for each campaign, ordered by total budget?
+
+SELECT c.campaign_name, 
+       SUM(c.budget) AS total_budget,
+       SUM(a.clicks) AS total_clicks,
+       AVG(a.conversion_rate) AS avg_conversion_rate
+FROM campaigns c
+LEFT JOIN ad_performance a ON a.campaign_id = c.campaign_id
+GROUP BY c.campaign_name
+ORDER BY total_budget DESC;
