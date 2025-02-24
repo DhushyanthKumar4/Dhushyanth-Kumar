@@ -1,0 +1,133 @@
+
+
+1. Retrieve the total balance of all accounts, grouped by account type:
+sql
+Copy
+SELECT account_type, SUM(balance) AS total_balance
+FROM accounts
+GROUP BY account_type;
+
+
+2. Find the total amount deposited and withdrawn for each account in the transactions table:
+sql
+Copy
+SELECT account_id, 
+       SUM(CASE WHEN transaction_type = 'Deposit' THEN amount ELSE 0 END) AS total_deposits,
+       SUM(CASE WHEN transaction_type = 'Withdrawal' THEN amount ELSE 0 END) AS total_withdrawals
+FROM transactions
+GROUP BY account_id;
+
+
+3. Join the accounts and transactions tables to get a list of all transactions along with account details:
+sql
+Copy
+SELECT a.account_id, a.account_name, a.account_type, t.transaction_id, t.transaction_type, t.amount, t.transaction_date
+FROM accounts a
+JOIN transactions t ON a.account_id = t.account_id;
+
+
+4. List the account names and balances of accounts that have had withdrawals in the last 30 days:
+sql
+Copy
+SELECT DISTINCT a.account_name, a.balance
+FROM accounts a
+JOIN transactions t ON a.account_id = t.account_id
+WHERE t.transaction_type = 'Withdrawal'
+  AND t.transaction_date >= CURDATE() - INTERVAL 30 DAY;
+
+
+5. Calculate the average balance of all checking accounts:
+sql
+Copy
+SELECT AVG(balance) AS avg_balance
+FROM accounts
+WHERE account_type = 'Checking';
+
+
+6. Find the account with the highest balance and the account with the lowest balance:
+sql
+Copy
+(SELECT account_id, account_name, balance 
+ FROM accounts
+ ORDER BY balance DESC
+ LIMIT 1)
+UNION
+(SELECT account_id, account_name, balance 
+ FROM accounts
+ ORDER BY balance ASC
+ LIMIT 1);
+
+
+7. Find all deposits greater than $10,000 made in the last 60 days, and what accounts were affected:
+sql
+Copy
+SELECT t.transaction_id, t.account_id, a.account_name, t.amount, t.transaction_date
+FROM transactions t
+JOIN accounts a ON t.account_id = a.account_id
+WHERE t.amount > 10000
+  AND t.transaction_type = 'Deposit'
+  AND t.transaction_date >= CURDATE() - INTERVAL 60 DAY;
+
+
+8. Find the total balance of accounts belonging to a specific account holder (e.g., 'John Doe'):
+sql
+Copy
+SELECT account_holder_name, SUM(balance) AS total_balance
+FROM accounts
+WHERE account_holder_name = 'John Doe'
+GROUP BY account_holder_name;
+
+
+9. Identify accounts with a balance less than $5,000 after all transactions have been processed:
+sql
+Copy
+SELECT a.account_id, a.account_name, 
+       (a.balance + IFNULL(SUM(CASE WHEN t.transaction_type = 'Deposit' THEN t.amount ELSE 0 END), 0) 
+        - IFNULL(SUM(CASE WHEN t.transaction_type = 'Withdrawal' THEN t.amount ELSE 0 END), 0)) AS final_balance
+FROM accounts a
+LEFT JOIN transactions t ON a.account_id = t.account_id
+GROUP BY a.account_id, a.account_name, a.balance
+HAVING final_balance < 5000;
+
+
+10. Extract the month and year from the transaction_date column and group transactions by this value:
+sql
+Copy
+SELECT YEAR(transaction_date) AS transaction_year, 
+       MONTH(transaction_date) AS transaction_month, 
+       SUM(amount) AS total_amount
+FROM transactions
+GROUP BY YEAR(transaction_date), MONTH(transaction_date)
+ORDER BY transaction_year, transaction_month;
+
+
+11. Subquery: Find the account names and balances of accounts where the total amount withdrawn in the last 30 days exceeds $5,000:
+sql
+Copy
+SELECT a.account_name, a.balance
+FROM accounts a
+WHERE a.account_id IN (
+    SELECT t.account_id
+    FROM transactions t
+    WHERE t.transaction_type = 'Withdrawal'
+      AND t.amount > 5000
+      AND t.transaction_date >= CURDATE() - INTERVAL 30 DAY
+    GROUP BY t.account_id
+);
+
+
+12. CTE: Calculate the total balance of all accounts after considering all transactions (both deposits and withdrawals), and return the account names and balances of accounts with a total balance above $10,000:
+sql
+Copy
+WITH TotalBalance AS (
+    SELECT a.account_id, a.account_name, 
+           a.balance + 
+           IFNULL(SUM(CASE WHEN t.transaction_type = 'Deposit' THEN t.amount ELSE 0 END), 0) -
+           IFNULL(SUM(CASE WHEN t.transaction_type = 'Withdrawal' THEN t.amount ELSE 0 END), 0) AS final_balance
+    FROM accounts a
+    LEFT JOIN transactions t ON a.account_id = t.account_id
+    GROUP BY a.account_id, a.account_name, a.balance
+)
+SELECT account_name, final_balance
+FROM TotalBalance
+WHERE final_balance > 10000;
