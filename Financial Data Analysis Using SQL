@@ -1,4 +1,4 @@
-
+Financial Data Analysis using SQL
 
 1. Retrieve the total balance of all accounts, grouped by account type:
 sql
