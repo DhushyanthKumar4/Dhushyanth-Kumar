@@ -1,0 +1,297 @@
+Customer Behavior Data Analysis for Predictive Analytics
+SELECT * FROM customers;
+SELECT * FROM sessions;
+SELECT * FROM purchases;
+SELECT * FROM customeractivitylog;
+
+1. Total amount spent by each customer
+SELECT CONCAT(c.first_name, ' ' , c.last_name) AS customer_name, SUM(COALESCE(p.total_amount, 0)) AS total_purchase
+FROM customers c
+LEFT JOIN purchases p
+ON c.customer_id = p.customer_id
+GROUP BY CONCAT(c.first_name, ' ' , c.last_name);
+
+2. Most active customer based on sessions
+SELECT CONCAT(c.first_name, ' ' , c.last_name) AS customer_name, COUNT(COALESCE(s.session_id, 0)) AS total_sessions
+FROM customers c
+LEFT JOIN sessions s
+ON c.customer_id = s.customer_id
+GROUP BY CONCAT(c.first_name, ' ' , c.last_name)
+ORDER BY COUNT(s.session_id) DESC
+LIMIT 1;
+
+3. Customers who made a purchase and viewed a page in the same session
+SELECT DISTINCT c.customer_id, c.first_name, c.last_name, c.email
+FROM Customers c
+JOIN Sessions s ON c.customer_id = s.customer_id
+JOIN CustomerActivityLog cal ON s.session_id = cal.session_id
+JOIN Purchases p ON c.customer_id = p.customer_id
+WHERE cal.action = 'view'
+AND s.session_id = p.purchase_id;
+
+4. Average session time per customer
+SELECT 
+    c.customer_id, 
+    c.first_name, 
+    c.last_name, 
+    AVG(TIMESTAMPDIFF(MINUTE, s.session_start_time, s.session_end_time)) AS avg_session_duration_minutes
+FROM 
+    Customers c
+JOIN 
+    Sessions s ON c.customer_id = s.customer_id
+GROUP BY 
+    c.customer_id, c.first_name, c.last_name
+ORDER BY 
+    c.customer_id;
+
+5. Unique pages visited by each customer
+SELECT CONCAT(c.first_name, ' ' , c.last_name) AS customer_name, COUNT(DISTINCT(s.pages_visited)) AS unique_visits
+FROM customers c
+LEFT JOIN sessions s
+ON c.customer_id = s.customer_id
+WHERE s.pages_visited IS NOT NULL
+GROUP BY CONCAT(c.first_name, ' ' , c.last_name);
+
+6. Customers who registered in January and made a purchase in February
+SELECT CONCAT(c.first_name, ' ' , c.last_name) AS customer_name
+FROM customers c
+LEFT JOIN purchases p
+ON c.customer_id = p.customer_id
+WHERE c.registration_date BETWEEN '2025-01-01' AND '2025-01-31'
+ AND p.purchase_date BETWEEN '2025-02-01' AND '2025-02-28'
+GROUP BY CONCAT(c.first_name, ' ' , c.last_name);
+
+7. Total items purchased per month
+SELECT MONTHNAME(purchase_date) AS month_no, SUM(items_purchased) AS total_purchases
+FROM purchases
+GROUP BY MONTHNAME(purchase_date);
+
+8. Top 5 customers with the highest number of purchases
+SELECT CONCAT(c.first_name, ' ' , c.last_name) AS customer_name, SUM(p.items_purchased) AS total_purchases
+FROM customers c
+LEFT JOIN purchases p
+ON c.customer_id = p.customer_id
+GROUP BY CONCAT(c.first_name, ' ' , c.last_name)
+ORDER BY SUM(p.items_purchased) DESC
+LIMIT 5;
+
+9. Customers who haven’t made any purchases
+SELECT CONCAT(c.first_name, ' ' , c.last_name) AS customer_name
+FROM customers c
+LEFT JOIN purchases p
+ON c.customer_id = p.customer_id
+WHERE p.purchase_id IS NULL;
+
+10. Customer who made the most expensive purchase
+SELECT CONCAT(c.first_name, ' ' , c.last_name) AS customer_name, p.total_amount
+FROM customers c
+LEFT JOIN purchases p
+ON c.customer_id = p.customer_id
+ORDER BY p.total_amount DESC
+LIMIT 1;
+
+11. Most popular item purchased
+SELECT purchase_id
+FROM purchases
+WHERE purchase_id IS NOT NULL
+ORDER BY items_purchased DESC
+LIMIT 1;
+
+12. Customer activity over time
+SELECT MONTHNAME(timestamp) AS month_name, COUNT(activity_id) AS total_customers
+FROM customeractivitylog 
+WHERE activity_id IS NOT NULL
+GROUP BY MONTHNAME(timestamp);
+
+13. Session length distribution by customer
+SELECT CONCAT(c.first_name, ' ' , c.last_name) AS customer_name, SUM(COALESCE(TIMESTAMPDIFF(MINUTE,s.session_start_time,s.session_end_time),0))
+AS session_distribution_in_minutes
+FROM customers c
+LEFT JOIN sessions s
+ON c.customer_id = s.customer_id
+GROUP BY CONCAT(c.first_name, ' ' , c.last_name);
+
+14. Customers who made a purchase after viewing more than 5 pages
+SELECT DISTINCT CONCAT(c.first_name, ' ' , c.last_name) AS customer_name
+FROM customers c
+LEFT JOIN purchases p ON c.customer_id = p.customer_id
+LEFT JOIN sessions s ON c.customer_id = s.customer_id
+WHERE s.pages_visited > 5;
+
+15. View vs click activity per session
+SELECT 
+    s.session_id,
+    COUNT(CASE WHEN cal.action = 'view' THEN 1 END) AS views,
+    COUNT(CASE WHEN cal.action = 'click' THEN 1 END) AS clicks
+FROM 
+    Sessions s
+JOIN 
+    CustomerActivityLog cal ON s.session_id = cal.session_id
+GROUP BY 
+    s.session_id
+ORDER BY 
+    s.session_id;
+
+SQL Schema:
+CREATE TABLE Customers (
+    customer_id INT PRIMARY KEY,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    email VARCHAR(100) UNIQUE,
+    registration_date DATE
+);
+CREATE TABLE Sessions (
+    session_id INT PRIMARY KEY,
+    customer_id INT,
+    session_start_time TIMESTAMP,
+    session_end_time TIMESTAMP,
+    pages_visited INT,
+    FOREIGN KEY (customer_id) REFERENCES Customers(customer_id)
+);
+CREATE TABLE Purchases (
+    purchase_id INT PRIMARY KEY,
+    customer_id INT,
+    purchase_date TIMESTAMP,
+    total_amount DECIMAL(10, 2),
+    items_purchased INT,
+    FOREIGN KEY (customer_id) REFERENCES Customers(customer_id)
+);
+CREATE TABLE CustomerActivityLog (
+    activity_id INT PRIMARY KEY,
+    session_id INT,
+    customer_id INT,
+    action VARCHAR(100),
+    timestamp TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES Sessions(session_id),
+    FOREIGN KEY (customer_id) REFERENCES Customers(customer_id)
+);
+
+INSERT INTO Customers (customer_id, first_name, last_name, email, registration_date)
+VALUES
+(1, 'John', 'Doe', 'john.doe@example.com', '2025-01-01'),
+(2, 'Jane', 'Smith', 'jane.smith@example.com', '2025-01-10'),
+(3, 'Emily', 'Johnson', 'emily.johnson@example.com', '2025-01-05'),
+(4, 'Michael', 'Brown', 'michael.brown@example.com', '2025-02-15'),
+(5, 'Chris', 'Davis', 'chris.davis@example.com', '2025-02-20'),
+(6, 'Katie', 'Wilson', 'katie.wilson@example.com', '2025-01-18'),
+(7, 'David', 'Moore', 'david.moore@example.com', '2025-01-22'),
+(8, 'Sarah', 'Taylor', 'sarah.taylor@example.com', '2025-02-12'),
+(9, 'James', 'Anderson', 'james.anderson@example.com', '2025-02-10'),
+(10, 'Mary', 'Thomas', 'mary.thomas@example.com', '2025-01-25'),
+(11, 'Patricia', 'Jackson', 'patricia.jackson@example.com', '2025-02-01'),
+(12, 'Linda', 'Martin', 'linda.martin@example.com', '2025-02-05'),
+(13, 'Robert', 'Lee', 'robert.lee@example.com', '2025-02-08'),
+(14, 'Thomas', 'Perez', 'thomas.perez@example.com', '2025-02-18'),
+(15, 'Elizabeth', 'Harris', 'elizabeth.harris@example.com', '2025-01-28'),
+(16, 'Jessica', 'Clark', 'jessica.clark@example.com', '2025-02-02'),
+(17, 'Daniel', 'Lewis', 'daniel.lewis@example.com', '2025-01-30'),
+(18, 'Susan', 'Young', 'susan.young@example.com', '2025-02-10'),
+(19, 'Mark', 'King', 'mark.king@example.com', '2025-01-21'),
+(20, 'Nancy', 'Wright', 'nancy.wright@example.com', '2025-02-03'),
+(21, 'Steven', 'Scott', 'steven.scott@example.com', '2025-01-27'),
+(22, 'George', 'Adams', 'george.adams@example.com', '2025-01-25'),
+(23, 'Deborah', 'Nelson', 'deborah.nelson@example.com', '2025-02-07'),
+(24, 'Anthony', 'Carter', 'anthony.carter@example.com', '2025-02-13'),
+(25, 'Sandra', 'Mitchell', 'sandra.mitchell@example.com', '2025-01-15'),
+(26, 'Betty', 'Roberts', 'betty.roberts@example.com', '2025-02-19'),
+(27, 'Steven', 'Walker', 'steven.walker@example.com', '2025-02-06'),
+(28, 'Daniel', 'Hall', 'daniel.hall@example.com', '2025-01-17'),
+(29, 'Lisa', 'Allen', 'lisa.allen@example.com', '2025-02-08'),
+(30, 'Paul', 'Gonzalez', 'paul.gonzalez@example.com', '2025-01-29');
+INSERT INTO Sessions (session_id, customer_id, session_start_time, session_end_time, pages_visited)
+VALUES
+(1, 1, '2025-01-01 08:00:00', '2025-01-01 08:30:00', 5),
+(2, 2, '2025-01-10 09:00:00', '2025-01-10 09:45:00', 7),
+(3, 3, '2025-01-05 11:30:00', '2025-01-05 12:00:00', 4),
+(4, 4, '2025-02-15 14:00:00', '2025-02-15 14:20:00', 3),
+(5, 5, '2025-02-20 16:00:00', '2025-02-20 16:40:00', 6),
+(6, 6, '2025-01-18 13:00:00', '2025-01-18 13:50:00', 8),
+(7, 7, '2025-01-22 10:15:00', '2025-01-22 10:40:00', 5),
+(8, 8, '2025-02-12 17:00:00', '2025-02-12 17:30:00', 7),
+(9, 9, '2025-02-10 15:00:00', '2025-02-10 15:20:00', 4),
+(10, 10, '2025-01-25 18:00:00', '2025-01-25 18:30:00', 6),
+(11, 11, '2025-02-01 12:30:00', '2025-02-01 13:00:00', 5),
+(12, 12, '2025-02-05 11:00:00', '2025-02-05 11:30:00', 4),
+(13, 13, '2025-02-08 10:45:00', '2025-02-08 11:15:00', 6),
+(14, 14, '2025-02-18 13:00:00', '2025-02-18 13:30:00', 5),
+(15, 15, '2025-01-28 16:00:00', '2025-01-28 16:20:00', 7),
+(16, 16, '2025-02-02 14:00:00', '2025-02-02 14:30:00', 4),
+(17, 17, '2025-01-30 10:00:00', '2025-01-30 10:30:00', 5),
+(18, 18, '2025-02-10 15:30:00', '2025-02-10 16:00:00', 6),
+(19, 19, '2025-01-21 13:45:00', '2025-01-21 14:15:00', 6),
+(20, 20, '2025-02-03 16:00:00', '2025-02-03 16:30:00', 7),
+(21, 21, '2025-01-27 09:30:00', '2025-01-27 10:00:00', 4),
+(22, 22, '2025-01-25 10:45:00', '2025-01-25 11:30:00', 5),
+(23, 23, '2025-02-07 11:00:00', '2025-02-07 11:30:00', 5),
+(24, 24, '2025-02-13 14:00:00', '2025-02-13 14:40:00', 6),
+(25, 25, '2025-01-15 15:00:00', '2025-01-15 15:30:00', 7),
+(26, 26, '2025-02-19 11:45:00', '2025-02-19 12:10:00', 4),
+(27, 27, '2025-02-06 16:00:00', '2025-02-06 16:30:00', 5),
+(28, 28, '2025-01-17 10:30:00', '2025-01-17 11:00:00', 6),
+(29, 29, '2025-02-08 12:00:00', '2025-02-08 12:30:00', 5),
+(30, 30, '2025-01-29 17:00:00', '2025-01-29 17:30:00', 4);
+INSERT INTO Purchases (purchase_id, customer_id, purchase_date, total_amount, items_purchased)
+VALUES
+(1, 1, '2025-01-01 08:15:00', 45.00, 2),
+(2, 2, '2025-01-10 09:20:00', 30.50, 1),
+(3, 3, '2025-01-05 11:35:00', 75.00, 3),
+(4, 4, '2025-02-15 14:05:00', 20.00, 1),
+(5, 5, '2025-02-20 16:10:00', 150.00, 5),
+(6, 6, '2025-01-18 13:15:00', 80.00, 2),
+(7, 7, '2025-01-22 10:30:00', 50.00, 2),
+(8, 8, '2025-02-12 17:10:00', 35.00, 2),
+(9, 9, '2025-02-10 15:15:00', 60.00, 3),
+(10, 10, '2025-01-25 18:05:00', 40.00, 1),
+(11, 11, '2025-02-01 12:45:00', 90.00, 3),
+(12, 12, '2025-02-05 11:20:00', 55.00, 2),
+(13, 13, '2025-02-08 10:55:00', 100.00, 4),
+(14, 14, '2025-02-18 13:10:00', 70.00, 2),
+(15, 15, '2025-01-28 16:15:00', 85.00, 2),
+(16, 16, '2025-02-02 14:20:00', 60.00, 3),
+(17, 17, '2025-01-30 10:20:00', 40.00, 2),
+(18, 18, '2025-02-10 15:40:00', 90.00, 3),
+(19, 19, '2025-01-21 13:50:00', 120.00, 4),
+(20, 20, '2025-02-03 16:05:00', 45.00, 2),
+(21, 21, '2025-01-27 09:40:00', 70.00, 2),
+(22, 22, '2025-01-25 10:50:00', 50.00, 1),
+(23, 23, '2025-02-07 11:25:00', 65.00, 3),
+(24, 24, '2025-02-13 14:25:00', 80.00, 2),
+(25, 25, '2025-01-15 15:15:00', 110.00, 4),
+(26, 26, '2025-02-19 11:55:00', 45.00, 2),
+(27, 27, '2025-02-06 16:10:00', 50.00, 2),
+(28, 28, '2025-01-17 10:40:00', 60.00, 2),
+(29, 29, '2025-02-08 12:20:00', 90.00, 3),
+(30, 30, '2025-01-30 17:20:00', 35.00, 1);
+INSERT INTO CustomerActivityLog (activity_id, session_id, customer_id, action, timestamp)
+VALUES
+(1, 1, 1, 'click', '2025-01-01 08:15:00'),
+(2, 2, 2, 'view', '2025-01-10 09:30:00'),
+(3, 3, 3, 'click', '2025-01-05 11:40:00'),
+(4, 4, 4, 'view', '2025-02-15 14:10:00'),
+(5, 5, 5, 'click', '2025-02-20 16:05:00'),
+(6, 6, 6, 'view', '2025-01-18 13:25:00'),
+(7, 7, 7, 'click', '2025-01-22 10:40:00'),
+(8, 8, 8, 'view', '2025-02-12 17:20:00'),
+(9, 9, 9, 'click', '2025-02-10 15:30:00'),
+(10, 10, 10, 'view', '2025-01-25 18:10:00'),
+(11, 11, 11, 'click', '2025-02-01 12:50:00'),
+(12, 12, 12, 'view', '2025-02-05 11:30:00'),
+(13, 13, 13, 'click', '2025-02-08 10:40:00'),
+(14, 14, 14, 'view', '2025-02-18 13:15:00'),
+(15, 15, 15, 'click', '2025-01-28 16:10:00'),
+(16, 16, 16, 'view', '2025-02-02 14:25:00'),
+(17, 17, 17, 'click', '2025-01-30 10:30:00'),
+(18, 18, 18, 'view', '2025-02-10 15:50:00'),
+(19, 19, 19, 'click', '2025-01-21 13:55:00'),
+(20, 20, 20, 'view', '2025-02-03 16:10:00'),
+(21, 21, 21, 'click', '2025-01-27 09:50:00'),
+(22, 22, 22, 'view', '2025-01-25 10:55:00'),
+(23, 23, 23, 'click', '2025-02-07 11:30:00'),
+(24, 24, 24, 'view', '2025-02-13 14:30:00'),
+(25, 25, 25, 'click', '2025-01-15 15:20:00'),
+(26, 26, 26, 'view', '2025-02-19 12:05:00'),
+(27, 27, 27, 'click', '2025-02-06 16:15:00'),
+(28, 28, 28, 'view', '2025-01-17 10:50:00'),
+(29, 29, 29, 'click', '2025-02-08 12:30:00'),
+(30, 30, 30, 'view', '2025-01-30 17:25:00');
+
