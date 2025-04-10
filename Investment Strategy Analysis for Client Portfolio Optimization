@@ -1,0 +1,349 @@
+Investment Strategy Analysis for Client Portfolio Optimization
+SELECT * FROM clients;
+SELECT * FROM investments;
+SELECT * FROM transactions;
+
+1. Identify the client with the highest combined investment value.
+SELECT CONCAT(c.first_name, ' ', c.last_name) AS client_name, SUM(COALESCE(i.investment_value,0)) AS total_investment
+FROM clients c
+LEFT JOIN investments i
+ON c.client_id = i.client_id
+GROUP BY CONCAT(c.first_name, ' ', c.last_name)
+ORDER BY SUM(COALESCE(i.investment_value,0)) DESC
+LIMIT 1;
+
+2. Calculate the average transaction amount for each client.
+SELECT CONCAT(c.first_name, ' ', c.last_name) AS client_name, AVG(COALESCE(t.amount, 0)) AS avg_transaction_amount
+FROM clients c
+LEFT JOIN transactions t
+ON c.client_id = t.client_id
+GROUP BY CONCAT(c.first_name, ' ', c.last_name);
+
+3. Find the investment type with the highest transaction volume in the last month.
+SELECT i.investment_type, SUM(COALESCE(t.amount, 0)) AS transaction_volume
+FROM investments i
+LEFT JOIN transactions t
+ON i.investment_id = t.investment_id
+WHERE t.transaction_date BETWEEN '2025-02-01' AND '2025-02-28'
+GROUP BY i.investment_type
+ORDER BY SUM(COALESCE(t.amount, 0)) DESC
+LIMIT 1;
+
+4. List clients who have sold investments and calculate their total investment value.
+SELECT CONCAT(c.first_name, ' ' , c.last_name) AS client_name, SUM(COALESCE(i.investment_value, 0)) 
+AS total_sold_investment
+FROM clients c
+LEFT JOIN investments i ON c.client_id = i.client_id
+LEFT JOIN transactions t ON i.investment_id = t.investment_id
+WHERE t.transaction_type = 'Sell'
+GROUP BY CONCAT(c.first_name, ' ' , c.last_name);
+
+5. Which clients have made a profit (buy amount is less than sell amount) on their investments?
+WITH buy_totals AS (
+    SELECT 
+        client_id, 
+        SUM(amount) AS total_buy
+    FROM 
+        transactions
+    WHERE 
+        transaction_type = 'Buy'
+    GROUP BY 
+        client_id
+),
+sell_totals AS (
+    SELECT 
+        client_id, 
+        SUM(amount) AS total_sell
+    FROM 
+        transactions
+    WHERE 
+        transaction_type = 'Sell'
+    GROUP BY 
+        client_id
+)
+SELECT 
+    c.client_id,
+    CONCAT(c.first_name, ' ' ,c.last_name) AS client_name,
+    COALESCE(s.total_sell, 0) - COALESCE(b.total_buy, 0) AS profit
+FROM 
+    clients c
+LEFT JOIN 
+    buy_totals b ON c.client_id = b.client_id
+LEFT JOIN 
+    sell_totals s ON c.client_id = s.client_id
+WHERE 
+    COALESCE(s.total_sell, 0) - COALESCE(b.total_buy, 0) > 0;
+
+6. Which investment type (stocks, bonds, real estate) had the most frequent buy transactions in the last 6 months?
+SELECT i.investment_type, COUNT(*) AS buy_count
+FROM investments i
+LEFT JOIN transactions t
+ON i.investment_id = t.investment_id
+WHERE t.transaction_type = 'Buy'
+AND t.transaction_date >= CURDATE() - INTERVAL 6 MONTH
+GROUP BY i.investment_type
+ORDER BY buy_count DESC
+LIMIT 1;
+
+7. What is the total value of transactions for each client who has bought more than one investment type?
+WITH client_investments AS (
+    SELECT 
+        t.client_id, 
+        i.investment_type,
+        SUM(t.amount) AS total_transaction_value
+    FROM transactions t
+    LEFT JOIN investments i ON t.investment_id = i.investment_id
+    WHERE t.transaction_type = 'Buy'
+    GROUP BY t.client_id, i.investment_type
+),
+client_multiple_investments AS (
+    SELECT client_id
+    FROM client_investments
+    GROUP BY client_id
+    HAVING COUNT(DISTINCT investment_type) > 1
+)
+SELECT 
+    ci.client_id,
+    SUM(ci.total_transaction_value) AS total_value_of_transactions
+FROM client_investments ci
+JOIN client_multiple_investments cmi ON ci.client_id = cmi.client_id
+GROUP BY ci.client_id;
+
+8. Identify the client who made the highest number of transactions (buy/sell) on the same investment.
+SELECT client_id, investment_id, COUNT(*) AS transaction_count
+FROM transactions
+GROUP BY client_id, investment_id
+ORDER BY transaction_count DESC
+LIMIT 1;
+
+9. What is the total number of clients who sold investments in the last quarter?
+SELECT COALESCE(COUNT(client_id),0) AS total_clients
+FROM transactions 
+WHERE transaction_type = 'Sell' AND
+transaction_date >= '2025-01-01' AND
+transaction_date < '2025-04-01';
+
+10. Calculate the number of buy and sell transactions for each investment.
+WITH buy_transactions AS (
+    SELECT investment_id, COUNT(*) AS buy_count
+    FROM transactions
+    WHERE transaction_type = 'Buy'
+    GROUP BY investment_id
+),
+sell_transactions AS (
+    SELECT investment_id, COUNT(*) AS sell_count
+    FROM transactions
+    WHERE transaction_type = 'Sell'
+    GROUP BY investment_id
+)
+SELECT 
+    i.investment_id,
+    COALESCE(b.buy_count, 0) AS bought,
+    COALESCE(s.sell_count, 0) AS sold
+FROM 
+    (SELECT DISTINCT investment_id FROM transactions) i
+LEFT JOIN buy_transactions b ON i.investment_id = b.investment_id
+LEFT JOIN sell_transactions s ON i.investment_id = s.investment_id
+ORDER BY i.investment_id;
+
+11. Identify which investment had the highest total transaction value, combining both buys and sells.
+SELECT investment_id, SUM(amount) AS total_transaction_value
+FROM transactions
+WHERE transaction_date >= CURDATE() - INTERVAL 1 YEAR 
+ AND transaction_type IN ('buy', 'sell')
+GROUP BY investment_id
+ORDER BY SUM(amount) DESC
+LIMIT 1;
+
+12. Which investment had the highest total transaction value from both buy and sell transactions over the last year?
+SELECT transaction_type, AVG(amount) AS average_transaction_value
+FROM transactions
+WHERE transaction_date >= CURDATE() - INTERVAL 1 YEAR
+GROUP BY transaction_type;
+
+13. Find the client who made the most recent purchase for each investment type (stocks, bonds, etc.).
+SELECT i.investment_type, t.client_id, CONCAT(c.first_name, ' ' , c.last_name) AS client_name, t.transaction_date
+FROM transactions t
+JOIN investments i ON t.investment_id = i.investment_id
+JOIN clients c ON t.client_id = c.client_id
+INNER JOIN (
+    SELECT i.investment_type, MAX(t.transaction_date) AS most_recent_purchase_date
+    FROM transactions t
+    JOIN investments i ON t.investment_id = i.investment_id
+    WHERE t.transaction_type = 'Buy'
+    GROUP BY i.investment_type
+) recent
+ON i.investment_type = recent.investment_type
+AND t.transaction_date = recent.most_recent_purchase_date
+WHERE t.transaction_type = 'Buy';
+
+14. Which investment has the highest total amount of money spent in transactions (buy and sell combined) by all clients?
+SELECT investment_id, SUM(amount) AS total_transaction_value
+FROM transactions
+WHERE transaction_type IN ('Buy', 'Sell')  
+GROUP BY investment_id
+ORDER BY total_transaction_value DESC
+LIMIT 1;
+
+15. For clients who have made more than one buy transaction, what is the average number of days between their purchases?
+WITH BuyTransactions AS (
+    SELECT 
+        client_id, 
+        transaction_date, 
+        LEAD(transaction_date) OVER (PARTITION BY client_id ORDER BY transaction_date) AS next_transaction_date
+    FROM transactions
+    WHERE transaction_type = 'Buy'
+),
+DaysBetweenPurchases AS (
+    SELECT 
+        client_id, 
+        DATEDIFF(next_transaction_date, transaction_date) AS days_between
+    FROM BuyTransactions
+    WHERE next_transaction_date IS NOT NULL  
+)
+SELECT 
+    client_id, 
+    AVG(days_between) AS average_days_between_purchases
+FROM DaysBetweenPurchases
+GROUP BY client_id
+HAVING COUNT(client_id) > 1;  
+
+SQL Schema
+CREATE TABLE clients (
+    client_id INT PRIMARY KEY,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    email VARCHAR(100) UNIQUE,
+    account_opening_date DATE
+);
+
+CREATE TABLE investments (
+    investment_id INT PRIMARY KEY,
+    client_id INT,
+    investment_type VARCHAR(50), -- e.g., stocks, bonds, real estate
+    investment_value DECIMAL(15, 2),
+    purchase_date DATE,
+    FOREIGN KEY (client_id) REFERENCES Clients(client_id)
+);
+
+CREATE TABLE transactions (
+    transaction_id INT PRIMARY KEY,
+    client_id INT,
+    investment_id INT,
+    transaction_type VARCHAR(50), -- e.g., buy, sell
+    transaction_date TIMESTAMP,
+    amount DECIMAL(15, 2),
+    FOREIGN KEY (client_id) REFERENCES Clients(client_id),
+    FOREIGN KEY (investment_id) REFERENCES Investments(investment_id)
+);
+
+INSERT INTO clients (client_id, first_name, last_name, email, account_opening_date)
+VALUES
+(1, 'John', 'Doe', 'john.doe@example.com', '2025-03-01'),
+(2, 'Jane', 'Smith', 'jane.smith@example.com', '2025-03-02'),
+(3, 'Emily', 'Johnson', 'emily.johnson@example.com', '2025-03-03'),
+(4, 'Michael', 'Brown', 'michael.brown@example.com', '2025-03-04'),
+(5, 'Chris', 'Davis', 'chris.davis@example.com', '2025-03-05'),
+(6, 'Katie', 'Wilson', 'katie.wilson@example.com', '2025-03-06'),
+(7, 'David', 'Moore', 'david.moore@example.com', '2025-03-07'),
+(8, 'Sarah', 'Taylor', 'sarah.taylor@example.com', '2025-03-08'),
+(9, 'James', 'Anderson', 'james.anderson@example.com', '2025-03-09'),
+(10, 'Mary', 'Thomas', 'mary.thomas@example.com', '2025-03-10'),
+(11, 'Patricia', 'Jackson', 'patricia.jackson@example.com', '2025-03-11'),
+(12, 'Linda', 'Martin', 'linda.martin@example.com', '2025-03-12'),
+(13, 'Robert', 'Lee', 'robert.lee@example.com', '2025-03-13'),
+(14, 'Thomas', 'Perez', 'thomas.perez@example.com', '2025-03-14'),
+(15, 'Elizabeth', 'Harris', 'elizabeth.harris@example.com', '2025-03-15'),
+(16, 'Jessica', 'Clark', 'jessica.clark@example.com', '2025-03-16'),
+(17, 'Daniel', 'Lewis', 'daniel.lewis@example.com', '2025-03-17'),
+(18, 'Susan', 'Young', 'susan.young@example.com', '2025-03-18'),
+(19, 'Mark', 'King', 'mark.king@example.com', '2025-03-19'),
+(20, 'Nancy', 'Wright', 'nancy.wright@example.com', '2025-03-20'),
+(21, 'Steven', 'Scott', 'steven.scott@example.com', '2025-03-21'),
+(22, 'George', 'Adams', 'george.adams@example.com', '2025-03-22'),
+(23, 'Deborah', 'Nelson', 'deborah.nelson@example.com', '2025-03-23'),
+(24, 'Anthony', 'Carter', 'anthony.carter@example.com', '2025-03-24'),
+(25, 'Sandra', 'Mitchell', 'sandra.mitchell@example.com', '2025-03-25'),
+(26, 'Betty', 'Roberts', 'betty.roberts@example.com', '2025-03-26'),
+(27, 'Steven', 'Walker', 'steven.walker@example.com', '2025-03-27'),
+(28, 'Daniel', 'Hall', 'daniel.hall@example.com', '2025-03-28'),
+(29, 'Lisa', 'Allen', 'lisa.allen@example.com', '2025-03-29'),
+(30, 'Paul', 'Gonzalez', 'paul.gonzalez@example.com', '2025-03-30');
+
+INSERT INTO investments (investment_id, client_id, investment_type, investment_value, purchase_date)
+VALUES
+(1, 1, 'Stocks', 50000.00, '2025-03-02'),
+(2, 2, 'Bonds', 20000.00, '2025-03-03'),
+(3, 3, 'Real Estate', 150000.00, '2025-03-04'),
+(4, 4, 'Stocks', 25000.00, '2025-03-05'),
+(5, 5, 'Bonds', 30000.00, '2025-03-06'),
+(6, 6, 'Real Estate', 120000.00, '2025-03-07'),
+(7, 7, 'Stocks', 70000.00, '2025-03-08'),
+(8, 8, 'Real Estate', 180000.00, '2025-03-09'),
+(9, 9, 'Bonds', 25000.00, '2025-03-10'),
+(10, 10, 'Stocks', 40000.00, '2025-03-11'),
+(11, 11, 'Real Estate', 100000.00, '2025-03-12'),
+(12, 12, 'Bonds', 60000.00, '2025-03-13'),
+(13, 13, 'Stocks', 120000.00, '2025-03-14'),
+(14, 14, 'Real Estate', 90000.00, '2025-03-15'),
+(15, 15, 'Bonds', 40000.00, '2025-03-16'),
+(16, 16, 'Stocks', 150000.00, '2025-03-17'),
+(17, 17, 'Real Estate', 130000.00, '2025-03-18'),
+(18, 18, 'Bonds', 35000.00, '2025-03-19'),
+(19, 19, 'Stocks', 20000.00, '2025-03-20'),
+(20, 20, 'Real Estate', 160000.00, '2025-03-21'),
+(21, 21, 'Bonds', 80000.00, '2025-03-22'),
+(22, 22, 'Stocks', 35000.00, '2025-03-23'),
+(23, 23, 'Real Estate', 110000.00, '2025-03-24'),
+(24, 24, 'Bonds', 45000.00, '2025-03-25'),
+(25, 25, 'Stocks', 90000.00, '2025-03-26'),
+(26, 26, 'Real Estate', 140000.00, '2025-03-27'),
+(27, 27, 'Bonds', 55000.00, '2025-03-28'),
+(28, 28, 'Stocks', 70000.00, '2025-03-29'),
+(29, 29, 'Real Estate', 120000.00, '2025-03-30'),
+(30, 30, 'Bonds', 25000.00, '2025-03-31');
+
+INSERT INTO transactions (transaction_id, client_id, investment_id, transaction_type, transaction_date, amount)
+VALUES
+(1, 1, 1, 'Buy', '2025-03-02 10:00:00', 50000.00),
+(2, 2, 2, 'Buy', '2025-03-03 11:00:00', 150000.00),
+(3, 3, 3, 'Sell', '2025-03-04 12:00:00', 120000.00),
+(4, 4, 4, 'Sell', '2025-03-05 13:00:00', 25000.00),
+(5, 5, 5, 'Buy', '2025-03-06 14:00:00', 30000.00),
+(6, 6, 6, 'Sell', '2025-03-07 15:00:00', 100000.00),
+(7, 7, 7, 'Sell', '2025-03-08 16:00:00', 45000.00),
+(8, 8, 8, 'Buy', '2025-03-09 17:00:00', 70000.00),
+(9, 9, 9, 'Buy', '2025-03-10 18:00:00', 10000.00),
+(10, 10, 10, 'Sell', '2025-03-11 19:00:00', 35000.00),
+(11, 11, 11, 'Buy', '2025-03-12 20:00:00', 120000.00),
+(12, 12, 12, 'Sell', '2025-03-13 21:00:00', 50000.00),
+(13, 13, 13, 'Buy', '2025-03-14 22:00:00', 60000.00),
+(14, 14, 14, 'Sell', '2025-03-15 23:00:00', 20000.00),
+(15, 15, 15, 'Buy', '2025-03-16 00:00:00', 150000.00),
+(16, 16, 16, 'Sell', '2025-03-17 01:00:00', 25000.00),
+(17, 17, 17, 'Buy', '2025-03-18 02:00:00', 35000.00),
+(18, 18, 18, 'Sell', '2025-03-19 03:00:00', 100000.00),
+(19, 19, 19, 'Sell', '2025-03-20 04:00:00', 40000.00),
+(20, 20, 20, 'Buy', '2025-03-21 05:00:00', 20000.00),
+(21, 21, 21, 'Sell', '2025-03-22 06:00:00', 120000.00),
+(22, 22, 22, 'Buy', '2025-03-23 07:00:00', 35000.00),
+(23, 23, 23, 'Buy', '2025-03-24 08:00:00', 40000.00),
+(24, 24, 24, 'Sell', '2025-03-25 09:00:00', 20000.00),
+(25, 25, 25, 'Sell', '2025-03-26 10:00:00', 80000.00),
+(26, 26, 26, 'Buy', '2025-03-27 11:00:00', 60000.00),
+(27, 27, 27, 'Sell', '2025-03-28 12:00:00', 25000.00),
+(28, 28, 28, 'Buy', '2025-03-29 13:00:00', 70000.00),
+(29, 29, 29, 'Sell', '2025-03-30 14:00:00', 60000.00),
+(30, 30, 30, 'Buy', '2025-03-31 15:00:00', 45000.00);
+
+
+	
+
+
+
+
+
+
+
+
+
